@@ -3,12 +3,14 @@ name: Build Release APK & AAB
 on:
   workflow_dispatch: {}
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build-release:
     name: Build release APK and AAB
     runs-on: ubuntu-latest
+
     env:
       GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx1536m"
 
@@ -25,10 +27,36 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Debug repository layout
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Root files:"
+          ls -la
+          echo "App folder:"
+          ls -la app || true
+          echo "Gradle folder:"
+          ls -la gradle || true
+
       - name: Build Release APK & AAB
         run: |
-          chmod +x gradlew
-          ./gradlew clean assembleRelease bundleRelease
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew clean :app:assembleRelease :app:bundleRelease --no-daemon
+          else
+            echo "Gradle wrapper not found. Installing Gradle..."
+            sudo apt-get update
+            sudo apt-get install -y gradle
+            gradle clean :app:assembleRelease :app:bundleRelease --no-daemon
+          fi
+
+      - name: Check generated files
+        run: |
+          echo "APK:"
+          ls -la app/build/outputs/apk/release || true
+
+          echo "AAB:"
+          ls -la app/build/outputs/bundle/release || true
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -46,6 +74,8 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v1.0.0
+          name: Release v1.0.0
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab
