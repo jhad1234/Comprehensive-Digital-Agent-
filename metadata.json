@@ -1,0 +1,6 @@
+{
+  "name": "General Digital Agent",
+  "description": "الوكيل الرقمي العام الشامل ونظام البناء والإصدار لـ Android - General Digital Agent & Build Release System",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
