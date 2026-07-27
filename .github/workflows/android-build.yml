@@ -1,0 +1,35 @@
+    - name: Locate and Make Gradle Wrapper Executable
+      run: |
+        set -e
+
+        WRAPPER_PATH=$(find . -name gradlew -type f | head -n 1 || true)
+
+        if [ -z "$WRAPPER_PATH" ]; then
+          echo "ERROR: gradlew not found"
+          echo "Files in repository:"
+          ls -la
+          exit 1
+        fi
+
+        echo "Found wrapper: $WRAPPER_PATH"
+        chmod +x "$WRAPPER_PATH"
+
+
+    - name: Compile and Build Debug APK
+      run: |
+        set -e
+
+        WRAPPER_PATH=$(find . -name gradlew -type f | head -n 1)
+        DIR=$(dirname "$WRAPPER_PATH")
+
+        cd "$DIR"
+
+        ./gradlew clean assembleDebug --no-daemon --stacktrace
+
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: AI-OS-Debug-APK
+        path: "**/build/outputs/apk/debug/*.apk"
+        retention-days: 7
