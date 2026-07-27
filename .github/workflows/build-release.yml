@@ -1,4 +1,4 @@
-name: Build Release APK & AAB (Fixed)
+name: Build Release APK & AAB
 
 on:
   workflow_dispatch: {}
@@ -8,108 +8,46 @@ on:
 
 jobs:
   build-release:
-    name: Build Android APK and AAB Release (Fixed)
+    name: Build Flutter Release APK & AAB
     runs-on: ubuntu-latest
-
-    env:
-      GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2048m"
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          distribution: temurin
-          java-version: '17'
+          flutter-version: 'stable'
+          channel: stable
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
+      - name: Flutter dependencies
+        run: flutter pub get
 
-      - name: Install Android SDK command-line tools and packages
-        run: |
-          set -eux
-          SDK_ROOT="${ANDROID_SDK_ROOT}"
-          mkdir -p "$SDK_ROOT"
-          cd "$HOME"
+      - name: Build APK
+        run: flutter build apk --release
 
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-
-          unzip -q cmdline-tools.zip -d "$SDK_ROOT"
-
-          mkdir -p "$SDK_ROOT/cmdline-tools/latest"
-
-          mv "$SDK_ROOT"/cmdline-tools/* "$SDK_ROOT/cmdline-tools/latest/" || true
-
-          export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-
-          yes | sdkmanager --sdk_root="$SDK_ROOT" \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.2"
-
-          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses
-
-      - name: Verify SDK
-        run: |
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          ls -la "$ANDROID_SDK_ROOT"
-          "$ANDROID_SDK_ROOT"/cmdline-tools/latest/bin/sdkmanager --list --sdk_root="$ANDROID_SDK_ROOT"
-
-      - name: Build Release APK and AAB (using Gradle wrapper)
-        run: |
-          set -eux
-
-          if [ -f ./gradlew ]; then
-            chmod +x ./gradlew
-
-            ./gradlew clean :app:assembleRelease :app:bundleRelease \
-            --no-daemon \
-            --stacktrace
-
-          else
-            echo "Gradle wrapper not found. Please add gradlew to the repo or let me know to install a system Gradle." >&2
-            exit 1
-          fi
-
-      - name: Verify APK output
-        run: |
-          echo "APK files:"
-          ls -la app/build/outputs/apk/release || true
-
-      - name: Verify AAB output
-        run: |
-          echo "AAB files:"
-          ls -la app/build/outputs/bundle/release || true
+      - name: Build AAB
+        run: flutter build appbundle --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Android-Release-APK
-          path: app/build/outputs/apk/release/*.apk
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: Android-Release-AAB
-          path: app/build/outputs/bundle/release/*.aab
+          name: release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Create GitHub Release
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: Android Release v1.0.0
           files: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
